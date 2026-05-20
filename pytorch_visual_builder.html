@@ -316,7 +316,6 @@
 <!-- ========== 头部 ========== -->
 <div class="header">
   <h1>🧩 PyTorch <span>可视化深度学习模型构建器</span></h1>
-  <p>拖拽配置模块 → 自动生成可运行的 PyTorch 代码 | 基于 MNIST 手写数字识别</p>
 </div>
 
 <!-- ========== 工具栏 ========== -->
@@ -1193,6 +1192,34 @@ function copyCode() {
 
 function downloadCode() {
   const code = document.getElementById('codeDisplay').textContent;
+
+  // 尝试使用 File System Access API 弹出"另存为"对话框
+  if ('showSaveFilePicker' in window) {
+    const opts = {
+      suggestedName: 'pytorch_mnist.py',
+      types: [{
+        description: 'Python 文件',
+        accept: { 'text/x-python': ['.py'] }
+      }]
+    };
+    window.showSaveFilePicker(opts).then(fileHandle => {
+      fileHandle.createWritable().then(writable => {
+        writable.write(code);
+        writable.close();
+        showToast('⬇ 文件已保存');
+      });
+    }).catch(err => {
+      // 用户取消或出错时静默处理
+      if (err.name !== 'AbortError') {
+        fallbackDownload(code);
+      }
+    });
+  } else {
+    fallbackDownload(code);
+  }
+}
+
+function fallbackDownload(code) {
   const blob = new Blob([code], { type: 'text/x-python' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1202,7 +1229,7 @@ function downloadCode() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('⬇ 代码已下载为 pytorch_mnist.py');
+  showToast('⬇ 代码已下载');
 }
 
 // ============================================================
