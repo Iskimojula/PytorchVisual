@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyTorch 可视化深度学习模型构建器</title>
+<style>
+  /* ========== 全局重置 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ========== 头部 ========== */
+  .header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
+    padding: 20px 40px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f97316;
+  }
+  .header h1 span { color: #e2e8f0; }
+  .header p {
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 14px;
+  }
+
+  /* ========== 工具栏 ========== */
+  .toolbar {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 12px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .toolbar label {
+    font-size: 13px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toolbar select, .toolbar input {
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  .toolbar select:focus, .toolbar input:focus { border-color: #f97316; }
+  .toolbar .sep { width: 1px; height: 28px; background: #334155; }
+  .toolbar-btn {
+    background: #334155;
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .toolbar-btn:hover { background: #475569; }
+  .toolbar-btn.primary {
+    background: #f97316;
+    color: #fff;
+    border-color: #f97316;
+  }
+  .toolbar-btn.primary:hover { background: #ea580c; }
+
+  /* ========== 流水线容器 ========== */
+  .pipeline-wrapper {
+    padding: 30px 40px 20px;
+    overflow-x: auto;
+  }
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: fit-content;
+  }
+
+  /* ========== 模块卡片 ========== */
+  .block {
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    width: 150px;
+    min-width: 150px;
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .block:hover { border-color: #f97316; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249,115,22,0.15); }
+  .block.active { border-color: #f97316; background: #2d1f0e; }
+  .block .icon { font-size: 28px; margin-bottom: 8px; }
+  .block .title { font-size: 13px; font-weight: 600; color: #f1f5f9; }
+  .block .desc { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4; }
+  .block .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f97316;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ========== 箭头连接 ========== */
+  .arrow {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .arrow svg { display: block; }
+
+  /* ========== 配置面板 ========== */
+  .config-panel {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    margin: 0 40px 20px;
+    padding: 0;
+    display: none;
+    position: relative;
+  }
+  .config-panel.open { display: block; }
+  .config-panel .config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #334155;
+  }
+  .config-panel .config-header h3 {
+    font-size: 16px;
+    color: #f97316;
+  }
+  .config-panel .config-header .close-btn {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .config-panel .config-header .close-btn:hover { background: #334155; color: #e2e8f0; }
+  .config-body {
+    padding: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .config-body .field {
+    margin-bottom: 14px;
+  }
+  .config-body .field:last-child { margin-bottom: 0; }
+  .config-body .field label {
+    display: block;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .config-body .field input,
+  .config-body .field select {
+    width: 100%;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+  }
+  .config-body .field input:focus,
+  .config-body .field select:focus { border-color: #f97316; }
+  .config-body .field .hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 3px;
+  }
+  .config-body .field-row {
+    display: flex;
+    gap: 12px;
+  }
+  .config-body .field-row .field { flex: 1; }
+
+  /* ========== 代码面板 ========== */
+  .code-panel {
+    margin: 0 40px 30px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .code-panel .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+  }
+  .code-panel .code-header h3 {
+    font-size: 14px;
+    color: #94a3b8;
+  }
+  .code-panel .code-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .code-panel .code-actions button {
+    background: #334155;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .code-panel .code-actions button:hover { background: #475569; }
+  .code-panel .code-actions button.primary {
+    background: #f97316;
+    color: #fff;
+  }
+  .code-panel .code-actions button.primary:hover { background: #ea580c; }
+  .code-panel pre {
+    padding: 20px;
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #e2e8f0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 200px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .code-panel pre .cmt { color: #64748b; font-style: italic; }
+  .code-panel pre .kw { color: #c084fc; }
+  .code-panel pre .fn { color: #60a5fa; }
+  .code-panel pre .str { color: #34d399; }
+  .code-panel pre .num { color: #fbbf24; }
+  .code-panel pre .op { color: #f472b6; }
+
+  /* ========== 提示框 ========== */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 13px;
+    color: #e2e8f0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ========== 响应式 ========== */
+  @media (max-width: 768px) {
+    .header { padding: 16px 20px; }
+    .header h1 { font-size: 20px; }
+    .toolbar { padding: 10px 20px; gap: 12px; }
+    .pipeline-wrapper { padding: 20px; }
+    .config-panel { margin: 0 20px 16px; }
+    .code-panel { margin: 0 20px 20px; }
+    .block { width: 120px; min-width: 120px; padding: 12px 8px; }
+    .block .icon { font-size: 22px; }
+    .block .title { font-size: 12px; }
+  }
+
+  /* ========== 滚动条美化 ========== */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0f172a; }
+  ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+</style>
+</head>
+<body>
+
+<!-- ========== 头部 ========== -->
+<div class="header">
+  <h1>🧩 PyTorch <span>可视化深度学习模型构建器</span></h1>
+  <p>拖拽配置模块 → 自动生成可运行的 PyTorch 代码 | 基于 MNIST 手写数字识别</p>
+</div>
+
+<!-- ========== 工具栏 ========== -->
+<div class="toolbar">
+  <span style="color: #64748b; font-size: 13px;">点击模块配置参数，然后点击模块中的 [确定] 生成对应代码</span>
+</div>
+
+<!-- ========== 流水线 ========== -->
+<div class="pipeline-wrapper">
+  <div class="pipeline" id="pipeline">
+    <!-- Block 0: Environment -->
+    <div class="block" data-block="env" onclick="openConfig('env')">
+      <span class="badge">⚙</span>
+      <div class="icon">🖥</div>
+      <div class="title">环境配置</div>
+      <div class="desc" id="envDesc">CPU, ./data</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 1: Dataset -->
+    <div class="block" data-block="dataset" onclick="openConfig('dataset')">
+      <span class="badge">1</span>
+      <div class="icon">📦</div>
+      <div class="title">数据集</div>
+      <div class="desc" id="datasetDesc">MNIST</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 2: DataLoader -->
+    <div class="block" data-block="dataloader" onclick="openConfig('dataloader')">
+      <span class="badge">2</span>
+      <div class="icon">🔄</div>
+      <div class="title">数据加载器</div>
+      <div class="desc" id="dataloaderDesc">batch=64, shuffle</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 3: Network -->
+    <div class="block" data-block="network" onclick="openConfig('network')">
+      <span class="badge">3</span>
+      <div class="icon">🧠</div>
+      <div class="title">网络架构</div>
+      <div class="desc" id="networkDesc">SimpleCNN</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 4: Loss -->
+    <div class="block" data-block="loss" onclick="openConfig('loss')">
+      <span class="badge">4</span>
+      <div class="icon">📉</div>
+      <div class="title">损失函数</div>
+      <div class="desc" id="lossDesc">CrossEntropyLoss</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 5: Optimizer -->
+    <div class="block" data-block="optimizer" onclick="openConfig('optimizer')">
+      <span class="badge">5</span>
+      <div class="icon">⚡</div>
+      <div class="title">优化器</div>
+      <div class="desc" id="optimizerDesc">Adam, lr=0.001</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 6: Training -->
+    <div class="block" data-block="training" onclick="openConfig('training')">
+      <span class="badge">6</span>
+      <div class="icon">🎯</div>
+      <div class="title">模型训练</div>
+      <div class="desc" id="trainingDesc">epochs=5</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 7: Evaluation -->
+    <div class="block" data-block="evaluation" onclick="openConfig('evaluation')">
+      <span class="badge">7</span>
+      <div class="icon">✅</div>
+      <div class="title">模型评估</div>
+      <div class="desc" id="evaluationDesc">测试集准确率</div>
+    </div>
+    <div class="arrow">
+      <svg width="36" height="40" viewBox="0 0 36 40">
+        <line x1="4" y1="20" x2="26" y2="20" stroke="#475569" stroke-width="2.5"/>
+        <polygon points="28,20 20,14 20,26" fill="#475569"/>
+      </svg>
+    </div>
+
+    <!-- Block 8: Export -->
+    <div class="block" data-block="export" onclick="openConfig('export')">
+      <span class="badge">8</span>
+      <div class="icon">💾</div>
+      <div class="title">模型导出</div>
+      <div class="desc" id="exportDesc">保存 .pth 文件</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 配置面板 ========== -->
+<div class="config-panel" id="configPanel">
+  <div class="config-header">
+    <h3 id="configTitle">配置</h3>
+    <button class="close-btn" onclick="closeConfig()">✕</button>
+  </div>
+  <div class="config-body" id="configBody">
+    <!-- 动态渲染 -->
+  </div>
+</div>
+
+<!-- ========== 代码面板 ========== -->
+<div class="code-panel">
+  <div class="code-header">
+    <h3>📄 生成的 Python 代码</h3>
+    <div class="code-actions">
+      <button onclick="clearCode()">🗑 清除</button>
+      <button onclick="copyCode()">📋 复制</button>
+      <button class="primary" onclick="downloadCode()">⬇ 下载 .py</button>
+    </div>
+  </div>
+  <pre id="codeDisplay">点击模块配置参数，然后点击模块中的 [确定] 生成对应代码</pre>
+</div>
+
+<!-- ========== Toast ========== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  配置数据
+// ============================================================
+const config = {
+  env: {
+    device: 'auto',
+    dataDir: './data',
+    savePath: './mnist_model.pth'
+  },
+  dataset: {
+    name: 'MNIST',
+    download: true,
+    transform: 'ToTensor + Normalize'
+  },
+  dataloader: {
+    batchSize: 64,
+    shuffle: true,
+    numWorkers: 2
+  },
+  network: {
+    modelType: 'SimpleCNN',
+    inputChannels: 1,
+    numClasses: 10,
+    hiddenSize: 128
+  },
+  loss: {
+    lossFn: 'CrossEntropyLoss'
+  },
+  optimizer: {
+    optimizerType: 'Adam',
+    learningRate: 0.001,
+    weightDecay: 0
+  },
+  training: {
+    epochs: 5,
+    logInterval: 100
+  },
+  evaluation: {
+    showAccuracy: true,
+    showLoss: true,
+    showConfusionMatrix: false
+  },
+  export: {
+    saveBest: true,
+    saveLast: false,
+    includeOptimizer: false
+  }
+};
+
+// 当前打开的配置面板
+let currentBlock = null;
+
+// ============================================================
+//  配置渲染
+// ============================================================
+function openConfig(blockId) {
+  currentBlock = blockId;
+  const panel = document.getElementById('configPanel');
+  const title = document.getElementById('configTitle');
+
+  const titles = {
+    env: '🖥 环境配置',
+    dataset: '📦 数据集配置',
+    dataloader: '🔄 数据加载器配置',
+    network: '🧠 网络架构配置',
+    loss: '📉 损失函数配置',
+    optimizer: '⚡ 优化器配置',
+    training: '🎯 训练参数配置',
+    evaluation: '✅ 评估配置',
+    export: '💾 模型导出配置'
+  };
+  title.textContent = titles[blockId] || '配置';
+
+  let html = '';
+  switch(blockId) {
+    case 'env':
+      html = `
+        <div class="field">
+          <label>训练设备</label>
+          <select onchange="updateConfig('env','device',this.value)">
+            <option value="auto" ${config.env.device==='auto'?'selected':''}>自动选择 (GPU优先)</option>
+            <option value="cuda" ${config.env.device==='cuda'?'selected':''}>GPU (CUDA)</option>
+            <option value="cpu" ${config.env.device==='cpu'?'selected':''}>CPU</option>
+            <option value="mps" ${config.env.device==='mps'?'selected':''}>MPS (Mac)</option>
+          </select>
+          <div class="hint">训练用硬件设备</div>
+        </div>
+        <div class="field">
+          <label>数据存放目录</label>
+          <input type="text" value="${config.env.dataDir}" onchange="updateConfig('env','dataDir',this.value)">
+          <div class="hint">数据集下载存放路径</div>
+        </div>
+        <div class="field">
+          <label>模型保存路径</label>
+          <input type="text" value="${config.env.savePath}" onchange="updateConfig('env','savePath',this.value)">
+          <div class="hint">训练完成后模型文件的保存位置</div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('env')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'dataset':
+      html = `
+        <div class="field">
+          <label>数据集</label>
+          <select onchange="updateConfig('dataset','name',this.value)">
+            <option value="MNIST" ${config.dataset.name==='MNIST'?'selected':''}>MNIST (28×28 手写数字)</option>
+            <option value="FashionMNIST" ${config.dataset.name==='FashionMNIST'?'selected':''}>FashionMNIST (28×28 服饰)</option>
+            <option value="CIFAR10" ${config.dataset.name==='CIFAR10'?'selected':''}>CIFAR-10 (32×32 彩色)</option>
+            <option value="EMNIST" ${config.dataset.name==='EMNIST'?'selected':''}>EMNIST (字母+数字)</option>
+          </select>
+          <div class="hint">PyTorch 内置数据集，首次使用会自动下载</div>
+        </div>
+        <div class="field">
+          <label>数据增强</label>
+          <select onchange="updateConfig('dataset','transform',this.value)">
+            <option value="ToTensor" ${config.dataset.transform==='ToTensor'?'selected':''}>仅 ToTensor</option>
+            <option value="ToTensor + Normalize" ${config.dataset.transform==='ToTensor + Normalize'?'selected':''}>ToTensor + Normalize</option>
+          </select>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.dataset.download?'checked':''} onchange="updateConfig('dataset','download',this.checked)"> 自动下载（如果不存在）</label>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('dataset')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'dataloader':
+      html = `
+        <div class="field-row">
+          <div class="field">
+            <label>批量大小 (batch_size)</label>
+            <input type="number" value="${config.dataloader.batchSize}" min="1" max="1024" onchange="updateConfig('dataloader','batchSize',parseInt(this.value))">
+            <div class="hint">每次训练使用的样本数</div>
+          </div>
+          <div class="field">
+            <label>工作进程数</label>
+            <input type="number" value="${config.dataloader.numWorkers}" min="0" max="16" onchange="updateConfig('dataloader','numWorkers',parseInt(this.value))">
+            <div class="hint">0=主进程加载</div>
+          </div>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.dataloader.shuffle?'checked':''} onchange="updateConfig('dataloader','shuffle',this.checked)"> 打乱数据 (shuffle)</label>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('dataloader')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'network':
+      html = `
+        <div class="field">
+          <label>网络模型</label>
+          <select onchange="updateConfig('network','modelType',this.value)">
+            <option value="SimpleCNN" ${config.network.modelType==='SimpleCNN'?'selected':''}>SimpleCNN (简单卷积网络)</option>
+            <option value="MLP" ${config.network.modelType==='MLP'?'selected':''}>MLP (多层感知机)</option>
+            <option value="SimpleNN" ${config.network.modelType==='SimpleNN'?'selected':''}>SimpleNN (简单全连接)</option>
+            <option value="LeNet5" ${config.network.modelType==='LeNet5'?'selected':''}>LeNet-5 (经典卷积)</option>
+          </select>
+          <div class="hint">适合 MNIST 的轻量级网络</div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>输入通道数</label>
+            <input type="number" value="${config.network.inputChannels}" min="1" max="3" onchange="updateConfig('network','inputChannels',parseInt(this.value))">
+            <div class="hint">MNIST=1, CIFAR10=3</div>
+          </div>
+          <div class="field">
+            <label>分类数</label>
+            <input type="number" value="${config.network.numClasses}" min="2" max="1000" onchange="updateConfig('network','numClasses',parseInt(this.value))">
+            <div class="hint">MNIST=10 类</div>
+          </div>
+        </div>
+        <div class="field" id="hiddenField">
+          <label>隐藏层大小</label>
+          <input type="number" value="${config.network.hiddenSize}" min="16" max="1024" onchange="updateConfig('network','hiddenSize',parseInt(this.value))">
+          <div class="hint">全连接层神经元数量</div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('network')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'loss':
+      html = `
+        <div class="field">
+          <label>损失函数</label>
+          <select onchange="updateConfig('loss','lossFn',this.value)">
+            <option value="CrossEntropyLoss" ${config.loss.lossFn==='CrossEntropyLoss'?'selected':''}>CrossEntropyLoss (交叉熵 - 分类任务)</option>
+            <option value="NLLLoss" ${config.loss.lossFn==='NLLLoss'?'selected':''}>NLLLoss (负对数似然)</option>
+            <option value="MSELoss" ${config.loss.lossFn==='MSELoss'?'selected':''}>MSELoss (均方误差)</option>
+            <option value="BCEWithLogitsLoss" ${config.loss.lossFn==='BCEWithLogitsLoss'?'selected':''}>BCEWithLogitsLoss (二分类)</option>
+          </select>
+          <div class="hint">分类任务推荐 CrossEntropyLoss</div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('loss')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'optimizer':
+      html = `
+        <div class="field">
+          <label>优化器</label>
+          <select onchange="updateConfig('optimizer','optimizerType',this.value)">
+            <option value="Adam" ${config.optimizer.optimizerType==='Adam'?'selected':''}>Adam (自适应矩估计)</option>
+            <option value="SGD" ${config.optimizer.optimizerType==='SGD'?'selected':''}>SGD (随机梯度下降)</option>
+            <option value="RMSprop" ${config.optimizer.optimizerType==='RMSprop'?'selected':''}>RMSprop</option>
+            <option value="AdamW" ${config.optimizer.optimizerType==='AdamW'?'selected':''}>AdamW (带权重衰减)</option>
+          </select>
+          <div class="hint">Adam 通常是初学者最友好的选择</div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>学习率 (learning_rate)</label>
+            <input type="number" value="${config.optimizer.learningRate}" min="0.00001" max="1" step="0.0001" onchange="updateConfig('optimizer','learningRate',parseFloat(this.value))">
+            <div class="hint">Adam 推荐 0.001, SGD 推荐 0.01</div>
+          </div>
+          <div class="field">
+            <label>权重衰减 (weight_decay)</label>
+            <input type="number" value="${config.optimizer.weightDecay}" min="0" max="1" step="0.0001" onchange="updateConfig('optimizer','weightDecay',parseFloat(this.value))">
+            <div class="hint">正则化，0=不启用</div>
+          </div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('optimizer')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'training':
+      html = `
+        <div class="field-row">
+          <div class="field">
+            <label>训练轮数 (epochs)</label>
+            <input type="number" value="${config.training.epochs}" min="1" max="200" onchange="updateConfig('training','epochs',parseInt(this.value))">
+            <div class="hint">完整遍历数据集的次数</div>
+          </div>
+          <div class="field">
+            <label>日志间隔 (iterations)</label>
+            <input type="number" value="${config.training.logInterval}" min="10" max="10000" step="10" onchange="updateConfig('training','logInterval',parseInt(this.value))">
+            <div class="hint">每 N 个 batch 打印一次</div>
+          </div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('training')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'evaluation':
+      html = `
+        <div class="field">
+          <label><input type="checkbox" ${config.evaluation.showAccuracy?'checked':''} onchange="updateConfig('evaluation','showAccuracy',this.checked)"> 计算准确率 (Accuracy)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.evaluation.showLoss?'checked':''} onchange="updateConfig('evaluation','showLoss',this.checked)"> 计算损失 (Loss)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.evaluation.showConfusionMatrix?'checked':''} onchange="updateConfig('evaluation','showConfusionMatrix',this.checked)"> 混淆矩阵 (Confusion Matrix)</label>
+          <div class="hint">需要安装 sklearn</div>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('evaluation')">✅ 确定</button>
+        </div>
+      `;
+      break;
+    case 'export':
+      html = `
+        <div class="field">
+          <label><input type="checkbox" ${config.export.saveBest?'checked':''} onchange="updateConfig('export','saveBest',this.checked)"> 保存最优模型 (best accuracy)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.export.saveLast?'checked':''} onchange="updateConfig('export','saveLast',this.checked)"> 保存最终模型 (last epoch)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" ${config.export.includeOptimizer?'checked':''} onchange="updateConfig('export','includeOptimizer',this.checked)"> 包含优化器状态 (用于恢复训练)</label>
+        </div>
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="toolbar-btn primary gen-btn" onclick="generateModuleCode('export')">✅ 确定</button>
+        </div>
+      `;
+      break;
+  }
+  document.getElementById('configBody').innerHTML = html;
+  panel.classList.add('open');
+}
+
+function closeConfig() {
+  document.getElementById('configPanel').classList.remove('open');
+  currentBlock = null;
+}
+
+// ============================================================
+//  配置更新
+// ============================================================
+function updateConfig(block, key, value) {
+  config[block][key] = value;
+  updateBlockDesc(block);
+}
+
+function updateBlockDesc(block) {
+  const descMap = {
+    env: `${config.env.device==='auto'?'自动':config.env.device}, ${config.env.dataDir}`,
+    dataset: config.dataset.name,
+    dataloader: `batch=${config.dataloader.batchSize}${config.dataloader.shuffle ? ', shuffle' : ''}`,
+    network: config.network.modelType,
+    loss: config.loss.lossFn,
+    optimizer: `${config.optimizer.optimizerType}, lr=${config.optimizer.learningRate}`,
+    training: `epochs=${config.training.epochs}`,
+    evaluation: '测试集准确率',
+    export: '保存 .pth 文件'
+  };
+  const el = document.getElementById(block + 'Desc');
+  if (el) el.textContent = descMap[block] || '';
+}
+
+// ============================================================
+//  已确认的模块（按流水线顺序）
+// ============================================================
+const PIPELINE_ORDER = ['env', 'dataset', 'dataloader', 'network', 'loss', 'optimizer', 'training', 'evaluation', 'export'];
+let confirmedModules = new Set();
+
+// ============================================================
+//  模块代码生成（点击模块内 [确定] 按钮触发）
+// ============================================================
+function generateModuleCode(blockId) {
+  // 标记该模块已确认
+  confirmedModules.add(blockId);
+
+  const device = config.env.device;
+  const dataDir = config.env.dataDir;
+  const savePath = config.env.savePath;
+
+  let fullCode = '';
+
+  // 按流水线顺序遍历所有模块，已确认的才生成代码
+  for (const id of PIPELINE_ORDER) {
+    if (!confirmedModules.has(id)) continue;
+    fullCode += getBlockCode(id, device, dataDir, savePath);
+    fullCode += '\n';
+  }
+
+  document.getElementById('codeDisplay').innerHTML = syntaxHighlight(fullCode);
+  showToast('✅ 代码已生成');
+}
+
+function getBlockCode(blockId, device, dataDir, savePath) {
+  let code = '';
+  switch(blockId) {
+    case 'env':
+      code += `# ===== 导入必要库 =====\n`;
+      code += `import torch\nimport torch.nn as nn\nimport torch.optim as optim\n`;
+      code += `import torch.nn.functional as F\n`;
+      code += `from torch.utils.data import DataLoader\n`;
+      code += `from torchvision import datasets, transforms\n`;
+      code += `import time\n\n`;
+      code += `# ===== 环境设置 =====\n`;
+      if (device === 'auto') {
+        code += `device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\n`;
+      } else {
+        code += `device = torch.device('${device}')\n`;
+      }
+      code += `print(f"使用设备: {device}")\n`;
+      break;
+
+    case 'dataset':
+      code += `# ===== 数据预处理 =====\n`;
+      if (config.dataset.transform === 'ToTensor + Normalize') {
+        code += `transform = transforms.Compose([\n    transforms.ToTensor(),\n`;
+        if (config.dataset.name === 'CIFAR10') {
+          code += `    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))\n`;
+        } else {
+          code += `    transforms.Normalize((0.1307,), (0.3081,))\n`;
+        }
+        code += `])\n`;
+      } else {
+        code += `transform = transforms.Compose([\n    transforms.ToTensor(),\n])\n`;
+      }
+      const dsName = config.dataset.name;
+      code += `\n# ===== 加载数据集 - ${dsName} =====\n`;
+      code += `train_dataset = datasets.${dsName}(root='${dataDir}', train=True, `;
+      code += `download=${config.dataset.download ? 'True' : 'False'}, transform=transform)\n`;
+      code += `test_dataset = datasets.${dsName}(root='${dataDir}', train=False, `;
+      code += `download=${config.dataset.download ? 'True' : 'False'}, transform=transform)\n`;
+      code += `print(f"训练集: {len(train_dataset)}张, 测试集: {len(test_dataset)}张")\n`;
+      code += `print(f"图片尺寸: {train_dataset[0][0].shape}")\n`;
+      break;
+
+    case 'dataloader':
+      code += `# ===== 创建 DataLoader =====\n`;
+      code += `train_loader = DataLoader(train_dataset, batch_size=${config.dataloader.batchSize}, `;
+      code += `shuffle=${config.dataloader.shuffle ? 'True' : 'False'}, num_workers=${config.dataloader.numWorkers})\n`;
+      code += `test_loader = DataLoader(test_dataset, batch_size=${config.dataloader.batchSize}, `;
+      code += `shuffle=False, num_workers=${config.dataloader.numWorkers})\n`;
+      code += `print(f"训练批次: {len(train_loader)}, 测试批次: {len(test_loader)}")\n`;
+      break;
+
+    case 'network':
+      const inCh = config.network.inputChannels;
+      const nClass = config.network.numClasses;
+      const hSize = config.network.hiddenSize;
+      code += `# ===== 定义网络 - ${config.network.modelType} =====\n`;
+      switch(config.network.modelType) {
+        case 'SimpleCNN':
+          code += `class SimpleCNN(nn.Module):\n`;
+          code += `    def __init__(self, num_classes=${nClass}):\n`;
+          code += `        super().__init__()\n`;
+          code += `        self.conv1 = nn.Conv2d(${inCh}, 32, 3, padding=1)\n`;
+          code += `        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)\n`;
+          code += `        self.pool = nn.MaxPool2d(2)\n`;
+          code += `        self.fc1 = nn.Linear(64*7*7, ${hSize})\n`;
+          code += `        self.fc2 = nn.Linear(${hSize}, num_classes)\n`;
+          code += `        self.dropout = nn.Dropout(0.25)\n`;
+          code += `    def forward(self, x):\n`;
+          code += `        x = self.pool(F.relu(self.conv1(x)))\n`;
+          code += `        x = self.pool(F.relu(self.conv2(x)))\n`;
+          code += `        x = x.view(x.size(0), -1)\n`;
+          code += `        x = F.relu(self.fc1(x))\n`;
+          code += `        x = self.dropout(x)\n`;
+          code += `        x = self.fc2(x)\n`;
+          code += `        return x\n`;
+          break;
+        case 'MLP':
+          code += `class MLP(nn.Module):\n`;
+          code += `    def __init__(self, num_classes=${nClass}):\n`;
+          code += `        super().__init__()\n`;
+          code += `        self.fc1 = nn.Linear(${inCh*28*28}, ${hSize*2})\n`;
+          code += `        self.fc2 = nn.Linear(${hSize*2}, ${hSize})\n`;
+          code += `        self.fc3 = nn.Linear(${hSize}, num_classes)\n`;
+          code += `        self.dropout = nn.Dropout(0.2)\n`;
+          code += `    def forward(self, x):\n`;
+          code += `        x = x.view(x.size(0), -1)\n`;
+          code += `        x = F.relu(self.fc1(x))\n`;
+          code += `        x = self.dropout(x)\n`;
+          code += `        x = F.relu(self.fc2(x))\n`;
+          code += `        x = self.dropout(x)\n`;
+          code += `        x = self.fc3(x)\n`;
+          code += `        return x\n`;
+          break;
+        case 'SimpleNN':
+          code += `class SimpleNN(nn.Module):\n`;
+          code += `    def __init__(self, num_classes=${nClass}):\n`;
+          code += `        super().__init__()\n`;
+          code += `        self.fc1 = nn.Linear(${inCh*28*28}, ${hSize})\n`;
+          code += `        self.fc2 = nn.Linear(${hSize}, num_classes)\n`;
+          code += `    def forward(self, x):\n`;
+          code += `        x = x.view(x.size(0), -1)\n`;
+          code += `        x = F.relu(self.fc1(x))\n`;
+          code += `        x = self.fc2(x)\n`;
+          code += `        return x\n`;
+          break;
+        case 'LeNet5':
+          code += `class LeNet5(nn.Module):\n`;
+          code += `    def __init__(self, num_classes=${nClass}):\n`;
+          code += `        super().__init__()\n`;
+          code += `        self.conv1 = nn.Conv2d(${inCh}, 6, 5, padding=2)\n`;
+          code += `        self.conv2 = nn.Conv2d(6, 16, 5)\n`;
+          code += `        self.fc1 = nn.Linear(16*5*5, 120)\n`;
+          code += `        self.fc2 = nn.Linear(120, 84)\n`;
+          code += `        self.fc3 = nn.Linear(84, num_classes)\n`;
+          code += `    def forward(self, x):\n`;
+          code += `        x = F.relu(self.conv1(x))\n`;
+          code += `        x = F.max_pool2d(x, 2)\n`;
+          code += `        x = F.relu(self.conv2(x))\n`;
+          code += `        x = F.max_pool2d(x, 2)\n`;
+          code += `        x = x.view(x.size(0), -1)\n`;
+          code += `        x = F.relu(self.fc1(x))\n`;
+          code += `        x = F.relu(self.fc2(x))\n`;
+          code += `        x = self.fc3(x)\n`;
+          code += `        return x\n`;
+          break;
+      }
+      code += `\nmodel = ${config.network.modelType}(num_classes=${nClass}).to(device)\n`;
+      code += `print(model)\n`;
+      code += `print(f"参数数: {sum(p.numel() for p in model.parameters())}")\n`;
+      break;
+
+    case 'loss':
+      code += `# ===== 定义损失函数 =====\n`;
+      code += `criterion = nn.${config.loss.lossFn}()\n`;
+      break;
+
+    case 'optimizer':
+      code += `# ===== 定义优化器 =====\n`;
+      const optType = config.optimizer.optimizerType;
+      const lr = config.optimizer.learningRate;
+      const wd = config.optimizer.weightDecay;
+      if (wd > 0) {
+        code += `optimizer = optim.${optType}(model.parameters(), lr=${lr}, weight_decay=${wd})\n`;
+      } else {
+        code += `optimizer = optim.${optType}(model.parameters(), lr=${lr})\n`;
+      }
+      break;
+
+    case 'training':
+      const epochs = config.training.epochs;
+      const logInt = config.training.logInterval;
+      code += `# ===== 训练循环 =====\n`;
+      code += `def train_one_epoch(model, loader, criterion, optimizer, device, epoch):\n`;
+      code += `    model.train()\n`;
+      code += `    running_loss = 0.0\n`;
+      code += `    correct = total = 0\n`;
+      code += `    start = time.time()\n`;
+      code += `    for i, (data, target) in enumerate(loader):\n`;
+      code += `        data, target = data.to(device), target.to(device)\n`;
+      code += `        optimizer.zero_grad()\n`;
+      code += `        output = model(data)\n`;
+      code += `        loss = criterion(output, target)\n`;
+      code += `        loss.backward(); optimizer.step()\n`;
+      code += `        running_loss += loss.item()\n`;
+      code += `        _, pred = output.max(1)\n`;
+      code += `        total += target.size(0)\n`;
+      code += `        correct += pred.eq(target).sum().item()\n`;
+      code += `        if i % ${logInt} == 0:\n`;
+      code += `            print(f'Epoch {epoch} [{i*len(data)}/{len(loader.dataset)}] '\n`;
+      code += `                  f'Loss: {running_loss/(i+1):.4f} Acc: {100.*correct/total:.2f}%')\n`;
+      code += `    return running_loss/len(loader), 100.*correct/total\n\n`;
+      code += `print("开始训练...")\n`;
+      code += `for epoch in range(1, ${epochs}+1):\n`;
+      code += `    loss, acc = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch)\n`;
+      code += `    print(f'Epoch {epoch}: Loss={loss:.4f}, Acc={acc:.2f}%')\n`;
+      code += `    print('-'*50)\n`;
+      break;
+
+    case 'evaluation':
+      code += `# ===== 模型评估 =====\n`;
+      code += `def evaluate(model, loader, device):\n`;
+      code += `    model.eval()\n`;
+      code += `    test_loss = correct = total = 0\n`;
+      code += `    with torch.no_grad():\n`;
+      code += `        for data, target in loader:\n`;
+      code += `            data, target = data.to(device), target.to(device)\n`;
+      code += `            output = model(data)\n`;
+      code += `            test_loss += criterion(output, target).item()\n`;
+      code += `            _, pred = output.max(1)\n`;
+      code += `            total += target.size(0)\n`;
+      code += `            correct += pred.eq(target).sum().item()\n`;
+      code += `    return test_loss/len(loader), 100.*correct/total\n\n`;
+      code += `test_loss, test_acc = evaluate(model, test_loader, device)\n`;
+      code += `print(f"测试结果: Loss={test_loss:.4f}, Acc={test_acc:.2f}%")\n`;
+      if (config.evaluation.showConfusionMatrix) {
+        code += `\n# 混淆矩阵\n`;
+        code += `from sklearn.metrics import classification_report\n`;
+        code += `import numpy as np\n`;
+        code += `all_preds, all_targets = [], []\n`;
+        code += `model.eval()\n`;
+        code += `with torch.no_grad():\n`;
+        code += `    for data, target in test_loader:\n`;
+        code += `        data = data.to(device)\n`;
+        code += `        output = model(data)\n`;
+        code += `        _, p = output.max(1)\n`;
+        code += `        all_preds.extend(p.cpu().numpy())\n`;
+        code += `        all_targets.extend(target.numpy())\n`;
+        code += `print(classification_report(all_targets, all_preds))\n`;
+      }
+      break;
+
+    case 'export':
+      code += `# ===== 导出模型 =====\n`;
+      if (config.export.saveBest) {
+        code += `torch.save({\n`;
+        code += `    'model_state_dict': model.state_dict(),\n`;
+        if (config.export.includeOptimizer) {
+          code += `    'optimizer_state_dict': optimizer.state_dict(),\n`;
+        }
+        code += `    'accuracy': test_acc,\n`;
+        code += `    'model_architecture': '${config.network.modelType}',\n`;
+        code += `}, '${savePath}')\n`;
+        code += `print(f"模型已保存至: {savePath}")\n`;
+      }
+      code += `print("✓ 训练完成！")\n`;
+      break;
+  }
+  return code;
+}
+
+// ============================================================
+//  清除代码
+// ============================================================
+function clearCode() {
+  confirmedModules = new Set();
+  document.getElementById('codeDisplay').innerHTML = '点击模块配置参数，然后点击模块中的 [确定] 生成对应代码';
+  showToast('🗑 代码已清除');
+}
+
+// ============================================================
+//  语法高亮（安全版本，避免嵌套匹配）
+// ============================================================
+function syntaxHighlight(code) {
+  // Escape HTML entities first
+  let html = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // One-pass: replace on segments that aren't already inside an HTML tag
+  // Match the whole text, process token by token
+  const keywords = ['import', 'from', 'class', 'def', 'return', 'if', 'elif', 'else', 'for', 'in', 'while', 'with', 'as', 'not', 'and', 'or', 'True', 'False', 'None', 'self', 'print', 'super', 'pass', 'try', 'except', 'raise'];
+  const kwSet = new Set(keywords);
+
+  // Split into lines, process each line
+  const lines = html.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Determine token types on this line using regex matching
+    // We need to process: comments, strings, keywords
+    // Strategy: find all matches in order, apply from right to left
+
+    // 1. Find comment: # to end of line
+    const commentMatch = line.match(/(#.*)$/);
+    const commentStart = commentMatch ? commentMatch.index : -1;
+
+    // 2. Build result
+    let result = '';
+    if (commentStart >= 0) {
+      // Code part: 0 to commentStart
+      const codePart = line.substring(0, commentStart);
+      const commentPart = line.substring(commentStart);
+      result = highlightTokens(codePart, kwSet) + '<span class="cmt">' + commentPart + '</span>';
+    } else {
+      result = highlightTokens(line, kwSet);
+    }
+    lines[i] = result;
+  }
+
+  return lines.join('\n');
+}
+
+function highlightTokens(text, kwSet) {
+  // Tokenize: split by word boundaries, preserve whitespace and non-word chars
+  // Then highlight strings and keywords
+  let result = '';
+  let i = 0;
+
+  while (i < text.length) {
+    // Try to match a string literal first
+    const fStrMatch = text.substring(i).match(/^f"[^"]*"/);
+    if (fStrMatch) {
+      result += '<span class="str">' + fStrMatch[0] + '</span>';
+      i += fStrMatch[0].length;
+      continue;
+    }
+
+    const fStrMatch2 = text.substring(i).match(/^f'[^']*'/);
+    if (fStrMatch2) {
+      result += '<span class="str">' + fStrMatch2[0] + '</span>';
+      i += fStrMatch2[0].length;
+      continue;
+    }
+
+    const dStrMatch = text.substring(i).match(/^"[^"]*"/);
+    if (dStrMatch) {
+      result += '<span class="str">' + dStrMatch[0] + '</span>';
+      i += dStrMatch[0].length;
+      continue;
+    }
+
+    const sStrMatch = text.substring(i).match(/^'[^']*'/);
+    if (sStrMatch) {
+      result += '<span class="str">' + sStrMatch[0] + '</span>';
+      i += sStrMatch[0].length;
+      continue;
+    }
+
+    // Match a word
+    const wordMatch = text.substring(i).match(/^([a-zA-Z_]\w*)/);
+    if (wordMatch) {
+      const word = wordMatch[0];
+      if (kwSet.has(word)) {
+        result += '<span class="kw">' + word + '</span>';
+      } else {
+        result += word;
+      }
+      i += word.length;
+      continue;
+    }
+
+    // Match a number
+    const numMatch = text.substring(i).match(/^(\d+\.?\d*)/);
+    if (numMatch) {
+      result += '<span class="num">' + numMatch[0] + '</span>';
+      i += numMatch[0].length;
+      continue;
+    }
+
+    // Otherwise, consume one character as-is
+    result += text[i];
+    i++;
+  }
+
+  return result;
+}
+
+// ============================================================
+//  复制 & 下载
+// ============================================================
+function copyCode() {
+  const code = document.getElementById('codeDisplay').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('✅ 代码已复制到剪贴板！');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ 代码已复制到剪贴板！');
+  });
+}
+
+function downloadCode() {
+  const code = document.getElementById('codeDisplay').textContent;
+  const blob = new Blob([code], { type: 'text/x-python' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pytorch_mnist.py';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('⬇ 代码已下载为 pytorch_mnist.py');
+}
+
+// ============================================================
+//  Toast 提示
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+//  初始化
+// ============================================================
+updateBlockDesc('env');
+updateBlockDesc('dataset');
+updateBlockDesc('dataloader');
+updateBlockDesc('network');
+updateBlockDesc('loss');
+updateBlockDesc('optimizer');
+updateBlockDesc('training');
+updateBlockDesc('evaluation');
+updateBlockDesc('export');
+</script>
+</body>
+</html>

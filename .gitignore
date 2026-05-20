@@ -1,0 +1,17 @@
+# 数据目录
+data/
+
+# 模型文件
+*.pth
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# WorkBuddy
+.workbuddy/
